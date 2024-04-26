@@ -1,3 +1,5 @@
+//average distances
+
 mod helper;
 
 fn breadth_first_search(node: usize, node_count:usize, adjacency_list: Vec<Vec<usize>>) ->  Vec<usize>{
