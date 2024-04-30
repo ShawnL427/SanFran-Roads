@@ -1,5 +1,6 @@
 //average distances
 use rand::Rng;
+use std::collections::HashSet;
 mod helper;
 
 //given a point, computes bfs distances from selected node to every other, returns (list of distances, average distance)
@@ -46,26 +47,59 @@ fn main() {
     let bfs = breadth_first_search(1, list.len(), &list);
     //println!("{:?}", bfs);
 
-    //generate random sample of 5000 points 
-    //let random_sample: [i32] = [;5000];
-    //let x: i32 = rand::thread_rng().gen_range(0..=174956);
-
     let mut count =0;
-    /*
-    for node in 0..174956 as usize {
-        if rand::thread_rng().gen_range(0..=1000) < 5 {
-            println!("{}: {}, count:{}", node, breadth_first_search(node, 174956, &list).1, count);
-            count+=1;
-        }
-        
-    }
-     */
+    let mut sum: f64 = 0.00; // track sum
+    let mut bank:HashSet<usize> = HashSet::new(); // hashset to ensure no repeated points
+    while count < 3000 {// 3000 random sampled points
 
-    let mut sum: f64 = 0.00;
-    for _ in 0..5000 {
         let random_node = rand::thread_rng().gen_range(0..node_count);
-        sum += breadth_first_search(random_node, node_count, &list).1;
+        if !bank.contains(&random_node) {
+            sum += breadth_first_search(random_node, node_count, &list).1;
+            bank.insert(random_node);
+            count += 1;
+        }   
     }
-    println!("{}", sum / 5000.0);
-    
+    println!("{}", count);
+    println!("{}", sum / 3000.0);
+
+}
+
+#[test]
+fn test_bfs() {
+    let edges = vec![(0,3), (1,2), (1,3), (3,4)];
+    let node_count = 5;
+    let list = helper::to_adjacency_list(node_count, edges);
+    let bfs = breadth_first_search(1, node_count, &list);
+    //     1   
+    //    /  \
+    //   2    3
+    //      /  \
+    //     0    4
+    // from node 1, node 2 distance 1, node 3 distance 1, node 0 distance 2, node 4 distance 2
+    // average distance should be (1 + 1 + 2 + 2) / 4 = 1.5
+    assert_eq!(bfs.0, vec![2, 0, 1, 1, 2], "MISTAKE MADE");
+    assert_eq!(bfs.1, 1.5);
+}
+
+#[test]
+fn test_bfs_loop() {
+    let edges = vec![(0,1), (0,2), (1,3), (2,3)];
+    let node_count = 4;
+    let list = helper::to_adjacency_list(node_count, edges);
+    let bfs = breadth_first_search(0, node_count, &list);
+    //  0  -  1
+    //  |     |
+    //  2  -  3
+    // from node 0, node 1 distance 1, node 2 distance 1, node 3 distance 2
+    // average distance should be (1 + 1 + 2) / 3 = 1.333
+    assert_eq!(bfs.0, vec![0, 1, 1, 2], "ERROR");
+    assert_eq!(bfs.1, 4.0 / 3.0, "ERROR");
+}
+
+#[test]
+fn test_adjacency_list() {
+    let edges = vec![(0,3), (1,2), (1,3), (3,4), (4,5), (6,2)];
+    let node_count = 7;
+    let list = helper::to_adjacency_list(node_count, edges);
+    assert_eq!(list, vec![vec![3], vec![2,3], vec![1,6], vec![0, 1, 4], vec![3, 5], vec![4], vec![2]], "BIG ERROR");
 }
