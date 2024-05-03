@@ -3,16 +3,12 @@ use rand::Rng;
 use std::collections::HashSet;
 mod helper;
 
-//given a point, computes bfs distances from selected node to every other, returns (list of distances, average distance)
-fn breadth_first_search(node: usize, node_count:usize, adjacency_list: &Vec<Vec<usize>>) ->  (Vec<usize>, f64){
+//given a point, computes bfs distances from selected node to every other, returns list of distanced from node
+fn breadth_first_search(node: usize, node_count:usize, adjacency_list: &Vec<Vec<usize>>) ->  Vec<i32> {
 
     let mut visited: Vec<(bool, usize, usize)> = vec![(false, 0,0); node_count]; // (visited, previous node, total distance)
     visited[node] = (true, node, 0);
     let mut queue: Vec<usize> = vec![node];
-
-    let mut distances: Vec<usize> = vec![0; node_count];
-    let mut distance_sum: usize = 0;
-    let mut visited_count = 1;
 
     while !queue.is_empty() {
         let current_node = queue[0];
@@ -22,45 +18,72 @@ fn breadth_first_search(node: usize, node_count:usize, adjacency_list: &Vec<Vec<
                 queue.push(*neighbor);
                 visited[*neighbor] = (true, current_node, visited[current_node].2 +1);
 
-                distances[*neighbor] = visited[current_node].2 +1;
-                distance_sum += distances[*neighbor];
-                visited_count +=1;
             } 
         }
         queue.remove(0);
 
     }
-    let average_distance: f64 = distance_sum as f64 / (visited_count -1) as f64; //node_count-1 because should not include distance to self
-    return (distances, average_distance);
+
+    let mut distances: Vec<i32> = vec![0; node_count];
+    for i in 0..visited.len() {
+        if visited[i].0 {
+            distances[i] = visited[i].2 as i32;
+        }
+        else {
+            distances[i] = -1; //using -1 to represnet unvisited points
+        }
+    }
+    
+    return distances;
+}
+
+/* 
+fn dijkstras() {
+    let mut visited: Vec<()>
+}
+ */
+
+fn average_distances(node: usize, distances: Vec<i32>) -> f64 { //given a node and list of distances from node, compute average distance
+    let mut sum: i32 = 0;
+    let mut visited_count: f64 = 0.0;
+    for i in 0..distances.len() {
+        if i != node && distances[i] != -1 { //should not account for distance to self, and must be visited
+            sum += distances[i];
+            visited_count += 1.0;
+        }
+    }
+    let average: f64 = sum as f64 / visited_count;
+    if visited_count == 0.0 {return 0.0;}
+    return average;
 }
 
 fn main() {
     
+    // initialize adjacency list from txt file
+    
     let node_count = 174956;
     let edges = helper::extract_edges(format!("sf_edges.txt"));
     let list = helper::to_adjacency_list(node_count, edges);
-    //let edges = vec![(1,2), (1,3), (3,4)];
-    //let list = helper::to_adjacency_list(5, edges);
-
-    //println!("{:?}\n", list);
-
-    let bfs = breadth_first_search(1, list.len(), &list);
-    //println!("{:?}", bfs);
 
     let mut count =0;
     let mut sum: f64 = 0.00; // track sum
     let mut bank:HashSet<usize> = HashSet::new(); // hashset to ensure no repeated points
-    while count < 3000 {// 3000 random sampled points
+
+    let sampled = 3000;
+    // find average of AVERAGE distance from 3000 random sampled points to rest of points in set
+    while count < sampled {// 3000 random sampled points
 
         let random_node = rand::thread_rng().gen_range(0..node_count);
         if !bank.contains(&random_node) {
-            sum += breadth_first_search(random_node, node_count, &list).1;
+            let bfs = breadth_first_search(random_node, node_count, &list);
+            sum += average_distances(random_node, bfs);
+
             bank.insert(random_node);
             count += 1;
         }   
     }
-    println!("{}", count);
-    println!("{}", sum / 3000.0);
+
+    println!("{}", sum / sampled as f64);
 
 }
 
@@ -77,8 +100,8 @@ fn test_bfs() {
     //     0    4
     // from node 1, node 2 distance 1, node 3 distance 1, node 0 distance 2, node 4 distance 2
     // average distance should be (1 + 1 + 2 + 2) / 4 = 1.5
-    assert_eq!(bfs.0, vec![2, 0, 1, 1, 2], "MISTAKE MADE");
-    assert_eq!(bfs.1, 1.5);
+    assert_eq!(bfs, vec![2, 0, 1, 1, 2], "MISTAKE MADE");
+    assert_eq!(average_distances(1, bfs), 1.5);
 }
 
 #[test]
@@ -92,8 +115,23 @@ fn test_bfs_loop() {
     //  2  -  3
     // from node 0, node 1 distance 1, node 2 distance 1, node 3 distance 2
     // average distance should be (1 + 1 + 2) / 3 = 1.333
-    assert_eq!(bfs.0, vec![0, 1, 1, 2], "ERROR");
-    assert_eq!(bfs.1, 4.0 / 3.0, "ERROR");
+    assert_eq!(bfs, vec![0, 1, 1, 2], "ERROR");
+    assert_eq!(average_distances(0, bfs), 4.0 / 3.0, "ERROR");
+}
+
+#[test]
+fn test_bfs_lonely() {
+    let edges = vec![(1,3), (2,3)];
+    let node_count = 4;
+    let list = helper::to_adjacency_list(node_count, edges);
+    let bfs = breadth_first_search(0, node_count, &list);
+    //  0     1
+    //        |
+    //  2  -  3
+    // from node 0, no points connected
+    // average distance should be 0
+    assert_eq!(bfs, vec![0, -1, -1, -1], "ERROR");
+    assert_eq!(average_distances(0, bfs), 0.0, "ERROR");
 }
 
 #[test]
