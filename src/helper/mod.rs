@@ -32,3 +32,13 @@ pub fn to_adjacency_list(node_count: usize, edges: Vec<(usize, usize)>) -> Vec<V
     return adjacency_list;
 
 }
+
+pub fn to_weighted_adjacency_list(node_count: usize, edges: Vec<(usize, usize, usize)>) -> Vec<Vec<(usize,usize)>> {
+    let mut weighted_adjacency_list: Vec<Vec<(usize,usize)>> = vec![vec![]; node_count];
+    for edge in edges { //(node1, node2, weight)
+        weighted_adjacency_list[edge.0].push((edge.1, edge.2));
+        weighted_adjacency_list[edge.1].push((edge.0, edge.2));
+    }
+    return weighted_adjacency_list;
+}
+//pub fn to csv()

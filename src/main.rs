@@ -3,7 +3,7 @@ use rand::Rng;
 use std::collections::HashSet;
 mod helper;
 
-//given a point, computes bfs distances from selected node to every other, returns list of distanced from node
+//given a point, computes bfs distances from selected node to every other, returns list of distances from selected node
 fn breadth_first_search(node: usize, node_count:usize, adjacency_list: &Vec<Vec<usize>>) ->  Vec<i32> {
 
     let mut visited: Vec<(bool, usize, usize)> = vec![(false, 0,0); node_count]; // (visited, previous node, total distance)
@@ -30,18 +30,62 @@ fn breadth_first_search(node: usize, node_count:usize, adjacency_list: &Vec<Vec<
             distances[i] = visited[i].2 as i32;
         }
         else {
-            distances[i] = -1; //using -1 to represnet unvisited points
+            distances[i] = -1; //using -1 to represent unvisited points
         }
     }
     
     return distances;
 }
 
-/* 
-fn dijkstras() {
-    let mut visited: Vec<()>
+// given a point, computes dijkstra's shortest path from selected point to all others, returns list of distances
+fn dijkstras(node: usize, node_count:usize, weighted_adjacency_list: &Vec<Vec<(usize, usize)>>) -> Vec<usize>{
+    
+
+    //assuming all points can be visited
+    let mut visited_count: usize =0;
+
+    //list where (visited, shortest dist) and index represents node
+    let mut visited: Vec<(bool, usize)> = vec![(false, usize::MAX); node_count]; 
+
+    fn next_shortest(list: &Vec<(bool,usize)>) -> usize { //given list, return next unvisited node with shortest dist
+        let mut min: usize = usize::MAX;
+        let mut min_index: usize = 0;
+
+        for i in 0..list.len() {
+            if !list[i].0 && list[i].1 < min { //if unvisited and shortest dist
+                min = list[i].1;
+                min_index = i;
+            }
+        }
+        return min_index;
+    }
+
+    let mut current_node: usize = node;
+    visited[current_node] = (true, 0);
+    visited_count += 1;
+
+    while visited_count != node_count { //assuming every node can be visited
+
+        for (neighbor,weight) in &weighted_adjacency_list[current_node] { //(node, weight)
+            if !visited[*neighbor].0 && *weight + visited[current_node].1 < visited[*neighbor].1 { 
+                // if neighbor unvisited and distance shorter, update distance
+                visited[*neighbor].1 = *weight + visited[current_node].1;
+            }
+        }
+        current_node = next_shortest(&visited);
+        visited[current_node].0 = true;
+        visited_count += 1;
+    }
+
+    let mut distances: Vec<usize> = vec![0; node_count];
+    for i in 0..visited.len() {
+        distances[i] = visited[i].1;
+    }
+    
+    return distances;
+    
 }
- */
+
 
 fn average_distances(node: usize, distances: Vec<i32>) -> f64 { //given a node and list of distances from node, compute average distance
     let mut sum: i32 = 0;
@@ -59,6 +103,7 @@ fn average_distances(node: usize, distances: Vec<i32>) -> f64 { //given a node a
 
 fn main() {
     
+    /* 
     // initialize adjacency list from txt file
     
     let node_count = 174956;
@@ -69,7 +114,7 @@ fn main() {
     let mut sum: f64 = 0.00; // track sum
     let mut bank:HashSet<usize> = HashSet::new(); // hashset to ensure no repeated points
 
-    let sampled = 3000;
+    let sampled = 300;
     // find average of AVERAGE distance from 3000 random sampled points to rest of points in set
     while count < sampled {// 3000 random sampled points
 
@@ -84,6 +129,22 @@ fn main() {
     }
 
     println!("{}", sum / sampled as f64);
+    */
+
+    // 0   -5   1
+    //   \2    /1
+    //      2
+
+    let edges: Vec<(usize,usize,usize)> = vec![(0,1,5), (0,2,2), (1,2,1)];
+    let node_count =3;
+    let weighted_adjacency_list = helper::to_weighted_adjacency_list(node_count, edges);
+
+    // [0] ->1->   [1]   ->2->   [2]
+
+    //let list: Vec<Vec<(usize, usize)>> = vec![vec![(1,1)], vec![(0,1),(2,2)], vec![(1,2)]];
+
+    let djk = dijkstras(0, node_count, &weighted_adjacency_list);
+    println!("{:?}", djk);
 
 }
 
