@@ -1,7 +1,9 @@
 //average distances
 use rand::Rng;
-use std::collections::HashSet;
+use std::{collections::HashSet, cmp::Ordering};
 mod helper;
+
+use std::collections::BinaryHeap;
 
 //given a point, computes bfs distances from selected node to every other, returns list of distances from selected node
 fn breadth_first_search(node: usize, node_count:usize, adjacency_list: &Vec<Vec<usize>>) ->  Vec<i32> {
@@ -38,17 +40,17 @@ fn breadth_first_search(node: usize, node_count:usize, adjacency_list: &Vec<Vec<
 }
 
 // given a point, computes dijkstra's shortest path from selected point to all others, returns list of distances
-fn dijkstras(node: usize, node_count:usize, weighted_adjacency_list: &Vec<Vec<(usize, usize)>>) -> Vec<usize>{
+fn dijkstras(node: usize, node_count:usize, weighted_adjacency_list: &Vec<Vec<(usize, f64)>>) -> Vec<f64>{
     
-
+    /*
     //assuming all points can be visited
     let mut visited_count: usize =0;
 
     //list where (visited, shortest dist) and index represents node
-    let mut visited: Vec<(bool, usize)> = vec![(false, usize::MAX); node_count]; 
+    let mut visited: Vec<(bool, f64)> = vec![(false, f64::MAX); node_count]; 
 
-    fn next_shortest(list: &Vec<(bool,usize)>) -> usize { //given list, return next unvisited node with shortest dist
-        let mut min: usize = usize::MAX;
+    fn next_shortest(list: &Vec<(bool,f64)>) -> usize { //given list, return next unvisited node with shortest dist
+        let mut min: f64 = f64::MAX;
         let mut min_index: usize = 0;
 
         for i in 0..list.len() {
@@ -61,7 +63,7 @@ fn dijkstras(node: usize, node_count:usize, weighted_adjacency_list: &Vec<Vec<(u
     }
 
     let mut current_node: usize = node;
-    visited[current_node] = (true, 0);
+    visited[current_node] = (true, 0.0);
     visited_count += 1;
 
     while visited_count != node_count { //assuming every node can be visited
@@ -77,15 +79,53 @@ fn dijkstras(node: usize, node_count:usize, weighted_adjacency_list: &Vec<Vec<(u
         visited_count += 1;
     }
 
-    let mut distances: Vec<usize> = vec![0; node_count];
+    let mut distances: Vec<f64> = vec![0.0; node_count];
     for i in 0..visited.len() {
-        distances[i] = visited[i].1;
+        distances[i] = visited[i].1 as f64;
     }
     
     return distances;
-    
-}
+     */
 
+    // min binary heap for f64 from stackoverflow 
+    // https://stackoverflow.com/questions/39949939/how-can-i-implement-a-min-heap-of-f64-with-rusts-binaryheap
+
+    #[derive(PartialEq)]
+    struct Rev(f64, usize);
+
+    impl Eq for Rev {}
+
+    impl PartialOrd for Rev {
+        fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+            other.0.partial_cmp(&self.0)
+        }
+    }
+
+    impl Ord for Rev {
+        fn cmp(&self, other: &Rev) -> Ordering {
+            self.partial_cmp(other).unwrap()
+        }
+    }
+
+    let mut pqueue = BinaryHeap::new(); //holds (dist, node)
+    let mut dist: Vec<f64> = vec![f64::MAX; node_count];
+
+    dist[node] = 0.0;
+    pqueue.push(Rev(0.0, node));
+
+    while !pqueue.peek().is_none() {
+        let current_node = pqueue.pop().unwrap().1;
+
+        for (neighbor, weight) in &weighted_adjacency_list[current_node] {
+            if dist[current_node] + *weight < dist[*neighbor] {
+                dist[*neighbor] = dist[current_node] + *weight;
+                pqueue.push(Rev(dist[current_node] + *weight, *neighbor));
+            }
+        }
+    }
+    return dist;
+
+}
 
 fn average_distances(node: usize, distances: Vec<i32>) -> f64 { //given a node and list of distances from node, compute average distance
     let mut sum: i32 = 0;
@@ -101,9 +141,22 @@ fn average_distances(node: usize, distances: Vec<i32>) -> f64 { //given a node a
     return average;
 }
 
+fn average_weighted_distances(node: usize, distances: Vec<f64>) -> f64 { //given node and list of distances, compute average assuming all points visited
+    let mut sum: f64 = 0.0;
+    let mut visited_count: f64 = 0.0;
+    for i in 0..distances.len() {
+        if i != node { //should not account for distance to self
+            sum += distances[i];
+            visited_count += 1.0;
+        }
+    }
+    let average: f64 = sum as f64 / visited_count;
+    if visited_count == 0.0 {return 0.0;}
+    return average;
+}
+
 fn main() {
     
-    /* 
     // initialize adjacency list from txt file
     
     let node_count = 174956;
@@ -114,7 +167,7 @@ fn main() {
     let mut sum: f64 = 0.00; // track sum
     let mut bank:HashSet<usize> = HashSet::new(); // hashset to ensure no repeated points
 
-    let sampled = 300;
+    let sampled = 3000;
     // find average of AVERAGE distance from 3000 random sampled points to rest of points in set
     while count < sampled {// 3000 random sampled points
 
@@ -128,24 +181,59 @@ fn main() {
         }   
     }
 
-    println!("{}", sum / sampled as f64);
-    */
-
-    // 0   -5   1
-    //   \2    /1
-    //      2
-
-    let edges: Vec<(usize,usize,usize)> = vec![(0,1,5), (0,2,2), (1,2,1)];
-    let node_count =3;
+    println!("Breadth First Search Average: {}", sum / sampled as f64);
+    
+    let node_count = 174956;
+    let edges = helper::extract_weighted_edges(format!("sf_edges.txt"));
     let weighted_adjacency_list = helper::to_weighted_adjacency_list(node_count, edges);
 
-    // [0] ->1->   [1]   ->2->   [2]
+    let mut count =0;
+    let mut sum: f64 = 0.00; // track sum
+    let mut bank:HashSet<usize> = HashSet::new(); // hashset to ensure no repeated points
 
-    //let list: Vec<Vec<(usize, usize)>> = vec![vec![(1,1)], vec![(0,1),(2,2)], vec![(1,2)]];
+    let sampled = 1000;
+    
+    // find average of AVERAGE distance from 3000 random sampled points to rest of points in set
+    while count < sampled {// 3000 random sampled points
 
+        let random_node = rand::thread_rng().gen_range(0..node_count);
+        if !bank.contains(&random_node) {
+            let djk = dijkstras(random_node, node_count, &weighted_adjacency_list);
+            sum += average_weighted_distances(random_node, djk);
+
+            bank.insert(random_node);
+            count += 1;
+        }   
+    }
+    println!("Dijkstra's Algorithm Average: {}", sum / sampled as f64);
+        
+}
+
+#[test]
+fn test_dijkstras() {
+        // [0] -1-   [1]   -2-   [2]
+        // 3 nodes, connections between 0-1 with weight 1 and 1-2 weight 2
+        // distances from point 0 should return vec [0, 1, 3]
+        // average distance should be 2
+        let edges: Vec<(usize, usize, f64)> = vec![(0,1,1.0), (1,2,2.0)];
+        let node_count = 3;
+        let weighted_adjacency_list = helper::to_weighted_adjacency_list(node_count, edges);
+        let djk = dijkstras(0, node_count, &weighted_adjacency_list);
+        assert_eq!(djk, vec![0.0,1.0,3.0], "ERROR");
+        assert_eq!(average_weighted_distances(0, djk), 2.0, "ERROR");
+}
+
+#[test] 
+fn test_dijkstras_multiple() {
+    // [0]   -3- [2]  -1- [3]
+    //   2\               /
+    //        [1]     -5/
+    let edges: Vec<(usize, usize, f64)> = vec![(0,1, 2.0), (0,2,3.0), (1,3,5.0), (2,3,1.0)];
+    let node_count = 4;
+    let weighted_adjacency_list = helper::to_weighted_adjacency_list(node_count, edges);
     let djk = dijkstras(0, node_count, &weighted_adjacency_list);
-    println!("{:?}", djk);
-
+    assert_eq!(djk, vec![0.0, 2.0, 3.0, 4.0], "ERROR");
+    assert_eq!(average_weighted_distances(0, djk), 3.0, "ERROR");
 }
 
 #[test]
