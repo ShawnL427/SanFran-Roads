@@ -1,5 +1,6 @@
 use std::fs::File;
 use std::io::prelude::*;
+use std::collections::HashMap;
 
 pub fn extract_edges(name: String) -> Vec<(usize,usize)> {
     let edges = File::open(name).expect("Could not open file");
@@ -16,7 +17,6 @@ pub fn extract_edges(name: String) -> Vec<(usize,usize)> {
 
         result.push((start_node, end_node));
     }
-
     return result;
 }
 
@@ -30,7 +30,6 @@ pub fn to_adjacency_list(node_count: usize, edges: Vec<(usize, usize)>) -> Vec<V
     }
     
     return adjacency_list;
-
 }
 
 pub fn to_weighted_adjacency_list(node_count: usize, edges: Vec<(usize, usize, f64)>) -> Vec<Vec<(usize,f64)>> {
@@ -62,4 +61,23 @@ pub fn extract_weighted_edges(name: String) -> Vec<(usize,usize,f64)> {
     return result;
 }
 
-//pub fn to csv()
+//
+pub fn create_node_map() -> HashMap<i32, (f64,f64)> {
+    
+    let mut node_pos: HashMap<i32, (f64,f64)> = HashMap::new();
+
+    // create key values from node.txt, file reader from lec27
+    let nodes = File::open("sf_nodes.txt").expect("Could not open file");
+    let node_reader = std::io::BufReader::new(nodes).lines();
+
+    for line in node_reader {
+        let line_str = line.expect("Error reading");
+        let v: Vec<&str> = line_str.trim().split(' ').collect();
+        let id = v[0].parse::<i32>().unwrap();
+        let x = v[1].parse::<f64>().unwrap();
+        let y = v[2].parse::<f64>().unwrap();
+        
+        node_pos.insert(id, (x,y));
+    }
+    return node_pos;
+}

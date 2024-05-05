@@ -4,6 +4,7 @@ use std::{collections::HashSet, cmp::Ordering};
 mod helper;
 
 use std::collections::BinaryHeap;
+use csv::Writer;
 
 //given a point, computes bfs distances from selected node to every other, returns list of distances from selected node
 fn breadth_first_search(node: usize, node_count:usize, adjacency_list: &Vec<Vec<usize>>) ->  Vec<i32> {
@@ -19,11 +20,9 @@ fn breadth_first_search(node: usize, node_count:usize, adjacency_list: &Vec<Vec<
             if !visited[*neighbor].0 { //if neighbor not visited
                 queue.push(*neighbor);
                 visited[*neighbor] = (true, current_node, visited[current_node].2 +1);
-
             } 
         }
         queue.remove(0);
-
     }
 
     let mut distances: Vec<i32> = vec![0; node_count];
@@ -42,7 +41,9 @@ fn breadth_first_search(node: usize, node_count:usize, adjacency_list: &Vec<Vec<
 // given a point, computes dijkstra's shortest path from selected point to all others, returns list of distances
 fn dijkstras(node: usize, node_count:usize, weighted_adjacency_list: &Vec<Vec<(usize, f64)>>) -> Vec<f64>{
     
+    
     /*
+    First Draft Dijkstra's algorithm (using disance list)
     //assuming all points can be visited
     let mut visited_count: usize =0;
 
@@ -83,10 +84,10 @@ fn dijkstras(node: usize, node_count:usize, weighted_adjacency_list: &Vec<Vec<(u
     for i in 0..visited.len() {
         distances[i] = visited[i].1 as f64;
     }
-    
     return distances;
-     */
+    */
 
+    // ### Revised Dijkstra's using priority queue
     // min binary heap for f64 from stackoverflow 
     // https://stackoverflow.com/questions/39949939/how-can-i-implement-a-min-heap-of-f64-with-rusts-binaryheap
 
@@ -94,7 +95,6 @@ fn dijkstras(node: usize, node_count:usize, weighted_adjacency_list: &Vec<Vec<(u
     struct Rev(f64, usize);
 
     impl Eq for Rev {}
-
     impl PartialOrd for Rev {
         fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
             other.0.partial_cmp(&self.0)
@@ -124,10 +124,9 @@ fn dijkstras(node: usize, node_count:usize, weighted_adjacency_list: &Vec<Vec<(u
         }
     }
     return dist;
-
 }
 
-fn average_distances(node: usize, distances: Vec<i32>) -> f64 { //given a node and list of distances from node, compute average distance
+fn average_distances(node: usize, distances: &Vec<i32>) -> f64 { //given a node and list of distances from node, compute average distance
     let mut sum: i32 = 0;
     let mut visited_count: f64 = 0.0;
     for i in 0..distances.len() {
@@ -141,7 +140,7 @@ fn average_distances(node: usize, distances: Vec<i32>) -> f64 { //given a node a
     return average;
 }
 
-fn average_weighted_distances(node: usize, distances: Vec<f64>) -> f64 { //given node and list of distances, compute average assuming all points visited
+fn average_weighted_distances(node: usize, distances: &Vec<f64>) -> f64 { //given node and list of distances, compute average assuming all points visited
     let mut sum: f64 = 0.0;
     let mut visited_count: f64 = 0.0;
     for i in 0..distances.len() {
@@ -156,9 +155,11 @@ fn average_weighted_distances(node: usize, distances: Vec<f64>) -> f64 { //given
 }
 
 fn main() {
-    
+    // Create mapping for node positions (for visualization) 
+    let node_pos = helper::create_node_map();
+
+    // Compute BFS average distance
     // initialize adjacency list from txt file
-    
     let node_count = 174956;
     let edges = helper::extract_edges(format!("sf_edges.txt"));
     let list = helper::to_adjacency_list(node_count, edges);
@@ -167,22 +168,33 @@ fn main() {
     let mut sum: f64 = 0.00; // track sum
     let mut bank:HashSet<usize> = HashSet::new(); // hashset to ensure no repeated points
 
-    let sampled = 3000;
-    // find average of AVERAGE distance from 3000 random sampled points to rest of points in set
-    while count < sampled {// 3000 random sampled points
+    // CSV setup for visualization
+    let writer = Writer::from_path("node_distances.csv");
+    let mut file = writer.expect("Error reading");
+    let _ = file.write_record(&["node_x", "node_y", "average_distance"]);
+
+    let sampled = 2000;
+    // find average of AVERAGE distance from 2000 random sampled points to rest of points in set
+    while count < sampled {// 2000 random sampled points
 
         let random_node = rand::thread_rng().gen_range(0..node_count);
         if !bank.contains(&random_node) {
             let bfs = breadth_first_search(random_node, node_count, &list);
-            sum += average_distances(random_node, bfs);
+            sum += average_distances(random_node, &bfs);
 
             bank.insert(random_node);
             count += 1;
+
+            // write node position + average distance to CSV for visualization
+            let x = format!("{}",node_pos.get(&(random_node as i32)).unwrap().0);
+            let y = format!("{}",node_pos.get(&(random_node as i32)).unwrap().1);
+            let dist = format!("{}", average_distances(random_node, &bfs));
+            let _ = file.write_record([x.as_bytes(),y.as_bytes(), dist.as_bytes()]);
         }   
     }
-
     println!("Breadth First Search Average: {}", sum / sampled as f64);
-    
+
+    // Compute Dijkstra's average shortest distance
     let node_count = 174956;
     let edges = helper::extract_weighted_edges(format!("sf_edges.txt"));
     let weighted_adjacency_list = helper::to_weighted_adjacency_list(node_count, edges);
@@ -191,22 +203,34 @@ fn main() {
     let mut sum: f64 = 0.00; // track sum
     let mut bank:HashSet<usize> = HashSet::new(); // hashset to ensure no repeated points
 
+    // CSV setup for visualization
+    let writer = Writer::from_path("node_weighted_distances.csv");
+    let mut file = writer.expect("Error reading");
+    let _ = file.write_record(&["node_x", "node_y", "average_distance"]);
+
     let sampled = 1000;
-    
-    // find average of AVERAGE distance from 3000 random sampled points to rest of points in set
-    while count < sampled {// 3000 random sampled points
+    // find average of AVERAGE shortest distance from 2000 random sampled points to rest of points in set
+    while count < sampled {// 2000 random sampled points
 
         let random_node = rand::thread_rng().gen_range(0..node_count);
         if !bank.contains(&random_node) {
             let djk = dijkstras(random_node, node_count, &weighted_adjacency_list);
-            sum += average_weighted_distances(random_node, djk);
+            sum += average_weighted_distances(random_node, &djk);
 
             bank.insert(random_node);
             count += 1;
+
+            // write CSV for visualization
+            let x = format!("{}",node_pos.get(&(random_node as i32)).unwrap().0);
+            let y = format!("{}",node_pos.get(&(random_node as i32)).unwrap().1);
+            let dist = format!("{}", average_weighted_distances(random_node, &djk));
+            let _ = file.write_record([x.as_bytes(),y.as_bytes(), dist.as_bytes()]);
         }   
     }
     println!("Dijkstra's Algorithm Average: {}", sum / sampled as f64);
-        
+
+    let _ = file.flush();
+
 }
 
 #[test]
@@ -220,7 +244,7 @@ fn test_dijkstras() {
         let weighted_adjacency_list = helper::to_weighted_adjacency_list(node_count, edges);
         let djk = dijkstras(0, node_count, &weighted_adjacency_list);
         assert_eq!(djk, vec![0.0,1.0,3.0], "ERROR");
-        assert_eq!(average_weighted_distances(0, djk), 2.0, "ERROR");
+        assert_eq!(average_weighted_distances(0, &djk), 2.0, "ERROR");
 }
 
 #[test] 
@@ -233,7 +257,7 @@ fn test_dijkstras_multiple() {
     let weighted_adjacency_list = helper::to_weighted_adjacency_list(node_count, edges);
     let djk = dijkstras(0, node_count, &weighted_adjacency_list);
     assert_eq!(djk, vec![0.0, 2.0, 3.0, 4.0], "ERROR");
-    assert_eq!(average_weighted_distances(0, djk), 3.0, "ERROR");
+    assert_eq!(average_weighted_distances(0, &djk), 3.0, "ERROR");
 }
 
 #[test]
@@ -250,7 +274,7 @@ fn test_bfs() {
     // from node 1, node 2 distance 1, node 3 distance 1, node 0 distance 2, node 4 distance 2
     // average distance should be (1 + 1 + 2 + 2) / 4 = 1.5
     assert_eq!(bfs, vec![2, 0, 1, 1, 2], "MISTAKE MADE");
-    assert_eq!(average_distances(1, bfs), 1.5);
+    assert_eq!(average_distances(1, &bfs), 1.5);
 }
 
 #[test]
@@ -265,7 +289,7 @@ fn test_bfs_loop() {
     // from node 0, node 1 distance 1, node 2 distance 1, node 3 distance 2
     // average distance should be (1 + 1 + 2) / 3 = 1.333
     assert_eq!(bfs, vec![0, 1, 1, 2], "ERROR");
-    assert_eq!(average_distances(0, bfs), 4.0 / 3.0, "ERROR");
+    assert_eq!(average_distances(0, &bfs), 4.0 / 3.0, "ERROR");
 }
 
 #[test]
@@ -280,7 +304,7 @@ fn test_bfs_lonely() {
     // from node 0, no points connected
     // average distance should be 0
     assert_eq!(bfs, vec![0, -1, -1, -1], "ERROR");
-    assert_eq!(average_distances(0, bfs), 0.0, "ERROR");
+    assert_eq!(average_distances(0, &bfs), 0.0, "ERROR");
 }
 
 #[test]
